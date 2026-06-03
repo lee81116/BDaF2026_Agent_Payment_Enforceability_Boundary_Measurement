@@ -86,3 +86,97 @@ Notes:
   `92bf9be` (D-4) → `d24e893` (D-5). This file finalized at commit recorded
   by the D-6 wrap-up commit.
 - Date: 2026-06-03.
+
+---
+
+# Batch settlement curve (Section E)
+
+Three baselines × N ∈ {1, 2, 5, 10, 20, 50}. Raw data: `docs/batch-curve.csv`.
+
+| N  | baseline 0 (no policy) | baseline 1 (E2 only) | baseline 2 (full E3) |
+|---:|---:|---:|---:|
+|  1 |    10,418 |    18,608 |    30,964 |
+|  2 |    20,122 |    28,634 |    40,990 |
+|  5 |    49,234 |    58,712 |    71,068 |
+| 10 |    97,754 |   108,842 |   121,198 |
+| 20 |   194,794 |   209,102 |   221,458 |
+| 50 |   485,914 |   509,882 |   522,238 |
+
+Per-request gas (column ÷ N):
+
+| N  | baseline 0 | baseline 1 | baseline 2 |
+|---:|---:|---:|---:|
+|  1 | 10,418 | 18,608 | 30,964 |
+|  2 | 10,061 | 14,317 | 20,495 |
+|  5 |  9,847 | 11,742 | 14,214 |
+| 10 |  9,775 | 10,884 | 12,120 |
+| 20 |  9,740 | 10,455 | 11,073 |
+| 50 |  9,718 | 10,198 | 10,445 |
+
+## Floor decomposition (per-request as N → ∞)
+
+Each baseline's curve fits exactly **`gas(N) = intercept + N · marginal`**:
+
+| Baseline | Intercept | Marginal | Floor decomposition (marginal) |
+|---|---:|---:|---|
+| 0 — no policy | 714 | 9,704 | 2,600 cold-account + 9,000 callvalue − 2,300 stipend + ~404 loop body |
+| 1 — E2 only | 8,582 | 10,026 | baseline 0 marginal (9,704) + 322 per-iter E2 check (GT + JUMPI + amount load) |
+| 2 — full E3 | 20,938 | 10,026 | identical marginal to baseline 1 — the E3 checks live at batch level, not in the inner loop |
+
+## Intercept decomposition (one-time per batch)
+
+The amortizing component — what makes per-request gas drop as N grows:
+
+| Baseline | Δ over baseline 0 | Components |
+|---|---:|---|
+| 1 − 0 |  7,868 | 2,200 cold SLOAD policies + 2,200 cold SLOAD balances + 2,900 SSTORE_RESET balances + ~568 arithmetic/dispatch |
+| 2 − 1 | 12,356 | 3 × 2,100 cold SLOAD (validUntil, active, maxPerDay) + 2,200 cold SLOAD dailyState + 2,900 SSTORE_RESET dailyState + ~956 E3 arithmetic (advance + revocation + expiry inlines) |
+
+## Analytical note
+
+Per-request gas approaches a floor as N grows because the per-batch overhead —
+the cold SLOAD of policy fields, the cold SLOAD of the balance, the SSTORE of
+the new balance, plus (for baseline 2) the cold SLOAD and SSTORE of
+`dailyState` — amortizes across N. The marginal cost per added recipient is
+dominated by the per-recipient `CALL` (~9.7 k for an existing, cold-account
+EOA with value), plus a small E2 check overhead (~0.3 k) that does not change
+between baselines 1 and 2. The cumulative-cap SSTORE is paid once per batch,
+not once per recipient — that is the whole point of batching.
+
+At N = 50 the full-E3 premium over baseline 0 reduces to
+`(522,238 − 485,914) / 485,914 ≈ **7.5 %**`. The premium of baseline 2 over
+baseline 1 at N = 50 is `(522,238 − 509,882) / 509,882 ≈ **2.4 %**` — the
+additional cost of E3-grade enforcement (expiry + revocation + cumulative cap)
+is small relative to the underlying transfer cost once N is large.
+
+## Measurement notes
+
+- All measurements use `vm.lastCallGas().gasTotalUsed` on the callee frame.
+- Setup (constructor, `setPolicy`, `deposit`, and a primer `batchDeduct` for
+  baseline 2 to populate `dailyState` non-zero) runs in `setUp()`. Foundry
+  runs `setUp` in a separate tx from each `test_*`, so the EIP-2929 access
+  list is reset and the first SLOAD inside `batchDeduct` is genuinely cold.
+- Recipients are pre-dealt 1 wei in `setUp` so they are existing accounts
+  (no 25,000 G_newaccount surcharge per inner CALL). Each (baseline, N) point
+  uses a disjoint recipient block to avoid cross-contamination.
+- Baseline 2 primer ensures the measured `batchDeduct` is a **repeat-day**
+  settlement (SSTORE_RESET path, 2,900 gas) rather than a **first-of-day**
+  one (SSTORE_SET, 20,000 gas). The latter would add a one-time +17,100 to
+  the N = 1 point that hides the steady-state curve.
+
+## Checkpoint E
+
+- [x] Three baseline measurements complete for N = 1, 2, 5, 10, 20, 50.
+- [x] CSV produced and committed (`docs/batch-curve.csv`).
+- [x] Per-request curve clearly approaches a floor — baseline 0 → ~9,704,
+      baselines 1 and 2 → ~10,026.
+- [x] Floor's dominant components named: the per-recipient inner CALL (cold
+      account + callvalue − stipend) plus the per-iter E2 check.
+
+## Section E reproduction
+
+- Section E commits: `ba254f8` (E-1) → `1385ee5` (E-2) → `778a581` (E-3) →
+  this commit (E-4).
+- Run: `forge test --match-path test/batch/BatchCurve.t.sol -vv | grep '^CSV,'`
+  reproduces every row of the CSV.
+- Date: 2026-06-03.
