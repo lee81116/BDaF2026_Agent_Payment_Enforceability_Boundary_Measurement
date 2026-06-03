@@ -45,6 +45,11 @@ Toolchain: forge 1.7.1 (4072e487) · solc 0.8.26 · optimizer 200 · via_ir = fa
 | E3_Revocation        | E3 | pass   | warm |   297 | warm SLOAD on same slot |
 | E3_Revocation        | E3 | revert | cold | 2,327 | pass cold + MSTORE PolicyInactive + REVERT (+30) |
 | E3_Revocation        | E3 | revert | warm |   327 | pass warm + revert overhead |
+| E3_CumulativeDailyCap | E3 | RO  pass     | cold | 2,954 | cold SLOAD packed slot (2100) + 854 arith (decode + unpack + DIV + add + cap cmp) |
+| E3_CumulativeDailyCap | E3 | R+W pass ①   | cold | 23,000 | RO baseline + SSTORE_SET 20000 (zero→nonzero, fresh slot) + 46 prep |
+| E3_CumulativeDailyCap | E3 | R+W pass ②   | cold | 5,900 | RO baseline + SSTORE_RESET 2900 (post-EIP-3529, nonzero→nonzero) + 46 prep |
+| E3_CumulativeDailyCap | E3 | R+W pass ③   | dirty | 1,100 | warm SLOAD (100) + 854 arith + dirty SSTORE (100) + 46. ⚠ same-tx 2nd call — NOT a representative per-tx cost |
+| E3_CumulativeDailyCap | E3 | revert (cap) | cold | 2,785 | cold SLOAD + 685 partial arith + revert glue (no SSTORE; advance reverts before harness write) |
 
 Notes:
 - Plan D.2 mentions a 500–2000 range for selector — that assumes a hardcoded
