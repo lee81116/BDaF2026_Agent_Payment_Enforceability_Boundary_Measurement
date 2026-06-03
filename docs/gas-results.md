@@ -37,6 +37,14 @@ Toolchain: forge 1.7.1 (4072e487) · solc 0.8.26 · optimizer 200 · via_ir = fa
 | E1_SelectorAllowlist | E1 | pass   | warm |   531 | warm SLOAD path |
 | E1_SelectorAllowlist | E1 | revert | cold | 2,557 | pass cold + revert overhead |
 | E1_SelectorAllowlist | E1 | revert | warm |   557 | pass warm + revert overhead |
+| E3_Expiry            | E3 | pass   | cold | 2,296 | dispatch + cold SLOAD slot0 (2100) + TIMESTAMP + GT + JUMPI + STOP |
+| E3_Expiry            | E3 | pass   | warm |   296 | warm SLOAD (100) on same slot |
+| E3_Expiry            | E3 | revert | cold | 2,326 | pass cold + MSTORE Expired + REVERT (+30) |
+| E3_Expiry            | E3 | revert | warm |   326 | pass warm + revert overhead |
+| E3_Revocation        | E3 | pass   | cold | 2,297 | dispatch + cold SLOAD + bool sanitization (+1) + ISZERO + JUMPI |
+| E3_Revocation        | E3 | pass   | warm |   297 | warm SLOAD on same slot |
+| E3_Revocation        | E3 | revert | cold | 2,327 | pass cold + MSTORE PolicyInactive + REVERT (+30) |
+| E3_Revocation        | E3 | revert | warm |   327 | pass warm + revert overhead |
 
 Notes:
 - Plan D.2 mentions a 500–2000 range for selector — that assumes a hardcoded
