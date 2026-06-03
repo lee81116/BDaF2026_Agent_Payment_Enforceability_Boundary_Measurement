@@ -1,5 +1,6 @@
 BatchCurveTest:test_Baseline0_NoPolicy() (gas: 1347278)
 BatchCurveTest:test_Baseline1_E2Only() (gas: 1423219)
+BatchCurveTest:test_Baseline2_FullE3() (gas: 1497356)
 E1_Allowlist_GasTest:test_gas_E1_Selector_pass_cold() (gas: 14076)
 E1_Allowlist_GasTest:test_gas_E1_Selector_pass_warm() (gas: 15213)
 E1_Allowlist_GasTest:test_gas_E1_Selector_revert_cold() (gas: 14251)

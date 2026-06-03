@@ -4,6 +4,7 @@ pragma solidity 0.8.26;
 import {GasMeasure} from "../policies/GasMeasure.sol";
 import {PlainBatchTransfer} from "../../src/baselines/PlainBatchTransfer.sol";
 import {Escrow_E2Only} from "../../src/baselines/Escrow_E2Only.sol";
+import {Escrow} from "../../src/Escrow.sol";
 
 /// @notice Section E batch-curve measurement.
 ///
@@ -40,6 +41,11 @@ contract BatchCurveTest is GasMeasure {
     address payable[][6] internal recipients1;
     uint256[][6] internal amounts1;
 
+    // Baseline 2 (full E3)
+    Escrow[6] internal box2;
+    address payable[][6] internal recipients2;
+    uint256[][6] internal amounts2;
+
     function setUp() public override {
         super.setUp();
         sizes = [uint256(1), 2, 5, 10, 20, 50];
@@ -58,6 +64,34 @@ contract BatchCurveTest is GasMeasure {
             box1[j].setPolicy(AGENT, Escrow_E2Only.AgentPolicy({maxPerRequest: CAP}));
             box1[j].deposit{value: 100 ether}(AGENT);
             (recipients1[j], amounts1[j]) = _buildRecipients(1, j, N);
+
+            // ---- baseline 2 (full E3) ----
+            box2[j] = new Escrow();
+            box2[j].setPolicy(
+                AGENT,
+                Escrow.AgentPolicy({
+                    maxPerRequest: CAP,
+                    maxPerDay: 1000 ether,
+                    validUntil: type(uint256).max,
+                    active: true
+                })
+            );
+            box2[j].deposit{value: 100 ether}(AGENT);
+            (recipients2[j], amounts2[j]) = _buildRecipients(2, j, N);
+
+            // Primer batchDeduct: populates dailyState non-zero so the test_*
+            // measurement hits SSTORE_RESET (post-3529: 2900) rather than the
+            // SSTORE_SET (20000) of a virgin slot. Without this, the N=1 point
+            // would carry a one-time +17,100 cliff that hides the actual
+            // steady-state per-batch cost. Uses a single throw-away recipient
+            // disjoint from the measurement block.
+            address payable primer = payable(address(uint160(0xC0DE_0000) + uint160(j)));
+            vm.deal(primer, 1);
+            address payable[] memory pr = new address payable[](1);
+            uint256[] memory pa = new uint256[](1);
+            pr[0] = primer;
+            pa[0] = 1; // 1 wei, just to bump dailyState.spent off zero
+            box2[j].batchDeduct(AGENT, pr, pa);
         }
     }
 
@@ -100,6 +134,19 @@ contract BatchCurveTest is GasMeasure {
                 true
             );
             emit log(string.concat("CSV,1,", vm.toString(sizes[j]), ",", vm.toString(g)));
+        }
+    }
+
+    // ---------- Baseline 2: full E3 ------------------------------------------
+
+    function test_Baseline2_FullE3() public {
+        for (uint256 j = 0; j < 6; ++j) {
+            uint256 g = _measure(
+                address(box2[j]),
+                abi.encodeCall(Escrow.batchDeduct, (AGENT, recipients2[j], amounts2[j])),
+                true
+            );
+            emit log(string.concat("CSV,2,", vm.toString(sizes[j]), ",", vm.toString(g)));
         }
     }
 }
