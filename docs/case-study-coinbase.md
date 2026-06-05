@@ -86,8 +86,9 @@ check or write):
    caller to attest to the old permission's `expectedLastUpdatedPeriod`;
    if an off-chain agent fails to use this entry point, the burden of
    ordering is theirs.
-4. **Identity / KYA.** No agent identity or attestation hook — analogous to
-   our methodology.md note that r_conf must `import` an off-chain truth.
+4. **Identity / KYA.** No agent identity or attestation hook. r_conf
+   requires importing an off-chain truth — oracle / attestation / identity;
+   the chain alone cannot decide it.
 5. **Settlement legibility.** The protocol records that "X wei moved from
    account A to spender S at time T" via `SpendPermissionUsed` (713–719);
    higher-level "what was purchased" lives in off-chain receipts.
@@ -114,12 +115,17 @@ must not be summed or directly differenced.
 | Source | Method | What it includes | Compile profile |
 |---|---|---|---|
 | Coinbase `.gas-snapshot` (committed in their repo) | `forge --gas-report`-style — the whole test-function gas, averaged across 256 fuzz runs | Caller setup, calldata copying, fuzz-arg variance, all sub-calls | `casestudy/coinbase/foundry.toml` (their settings: solc 0.8.x, default optimizer) |
-| **Our** `casestudy/coinbase/test/h3-gas/SpendGasMeasureH3.t.sol` | `vm.lastCallGas().gasTotalUsed` captured on the external `call` to `SpendPermissionManager` — **callee-frame only** | Only what runs inside `SpendPermissionManager.spend` / `revoke` and its sub-calls | Same `casestudy/coinbase/foundry.toml`. **Host `foundry.toml` is untouched** (golden rule #1). |
+| **Our** `casestudy/coinbase/test/h3-gas/SpendGasMeasureH3.t.sol` | `vm.lastCallGas().gasTotalUsed` captured on the external `call` to `SpendPermissionManager` — **callee-frame only** | Only what runs inside `SpendPermissionManager.spend` / `revoke` and its sub-calls | Same `casestudy/coinbase/foundry.toml` with `solc_version = "0.8.35"` pinned (see `VERSION.md` "Local patch applied at vendor time"). **Host `foundry.toml` is untouched** (golden rule #1). |
 | Host `docs/gas-results.md` (Section D) | `vm.lastCallGas().gasTotalUsed` on isolated policy-library calls | Only the policy-library check | Host `foundry.toml` (solc 0.8.26 / optimizer 200 / via_ir=false / pinned forge 1.7.1) |
 
 Comparing the host D rows to **our** Coinbase callee-frame numbers is
 methodologically sound; comparing either to the committed `.gas-snapshot`
 is **not**.
+
+> **H3 numbers measured under solc 0.8.35 / forge 1.7.1.** Each test
+> asserts the recorded value with `assertApproxEqAbs(..., 2)` — drift
+> beyond 2 gas opens a trace and fixes the opcode model, per golden
+> rule #2.
 
 ### H3.1 — Coinbase `.gas-snapshot` reference (their numbers, their methodology)
 
@@ -140,7 +146,8 @@ them here only as a public reference number, not as a direct comparand.
 
 Captured by `casestudy/coinbase/test/h3-gas/SpendGasMeasureH3.t.sol` using
 `vm.lastCallGas`. Re-run: `cd casestudy/coinbase && forge test --match-path
-"test/h3-gas/*" -vvvv | grep "callee-frame gas:"`.
+"test/h3-gas/*" -vv` — each number is emitted as a `log_named_uint` event
+and is visible in the `-vv` Logs section.
 
 | Coinbase call (callee-frame) | Storage regime | Our gas | Host analog | Host gas |
 |---|---|---:|---|---:|

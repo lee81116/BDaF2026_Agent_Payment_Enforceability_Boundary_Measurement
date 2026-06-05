@@ -11,7 +11,16 @@
 
 ## Build profile (their settings — do NOT merge into our default profile)
 
-Inherits `casestudy/coinbase/foundry.toml` (solc / optimizer / IR settings are theirs). Our root `foundry.toml` is untouched (project rule #1).
+Inherits `casestudy/coinbase/foundry.toml` (optimizer / IR / evm settings are theirs). Our root `foundry.toml` is untouched (project rule #1).
+
+| Field | Value | Source |
+|---|---|---|
+| `solc_version` | `0.8.35` | local patch (see "Local patch applied at vendor time" below); upstream auto-detects |
+| `evm_version` | `cancun` | upstream |
+| `optimizer` | upstream default | upstream |
+| forge | `1.7.1` | host toolchain |
+
+Recorded H3 callee-frame numbers (`casestudy/coinbase/test/h3-gas/`) were captured under that exact pin and are now asserted at `±2` gas (see `docs/case-study-coinbase.md` §H3.0).
 
 ## Submodule pins captured at vendor time
 
@@ -27,7 +36,8 @@ d87a6baaea980b54f6d0f2d3a3c30c45a5b1520a lib/solady
 
 ## Local patch applied at vendor time
 
-`.gitmodules`: rewrote the `lib/magic-spend` URL from `https://github.com/coinbase/magic-spend` to `https://github.com/coinbase/MagicSpend`. Upstream renamed the repo (the old URL now returns "Repository not found"); the new URL serves the same commit and the same `caret-0.8.23` branch.
+1. `.gitmodules`: rewrote the `lib/magic-spend` URL from `https://github.com/coinbase/magic-spend` to `https://github.com/coinbase/MagicSpend`. Upstream renamed the repo (the old URL now returns "Repository not found"); the new URL serves the same commit and the same `caret-0.8.23` branch.
+2. `foundry.toml`: added `solc_version = "0.8.35"` under `[profile.default]`. Upstream auto-detects the compiler from each file's pragma (currently resolves to 0.8.35); we pin the version the recorded H3 numbers were measured under so a future solc release does not silently move them.
 
 ## Re-fetching deps
 

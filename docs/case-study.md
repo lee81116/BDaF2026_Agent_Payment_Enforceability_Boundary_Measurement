@@ -2,7 +2,7 @@
 
 **Status**: H0–H7 complete (vendoring, structural mapping, gas annotation, cross-hop test, gradient rows, writeup); H8 verification recorded at the bottom.
 **Date opened**: 2026-06-05.
-**Scope reference**: `docs/case-study-impl-plan.md` (H0–H8); candidate survey in `docs/case-study-candidates.md`; per-system evidence files in `docs/case-study-coinbase.md` and `docs/case-study-metamask.md`.
+**Scope reference**: per-system evidence files in `docs/case-study-coinbase.md` and `docs/case-study-metamask.md`.
 
 > This file is the **locked** synthesis writeup. The per-system files are the evidence dossiers (every `file:line` and every measured number lives there). This page is what someone would read first; it should be defensible on its own.
 
@@ -129,7 +129,7 @@ Every caveat on every delegation fires. There is no "only the leaf is checked" b
 
 ### H.6.1 — Qualitative gradient (new rows for the report's gradient table)
 
-Adding two rows to the gradient grid (cf. `docs/figures/gradient_table.svg` host baseline; case-study overlay at `docs/figures/casestudy_mapping.svg`):
+Adding two rows to the gradient grid (case-study overlay at `docs/figures/casestudy_mapping.svg`):
 
 | System | E1 access | E2 transaction | E3 contextual | r_rev | r_scope (cross-hop) | r_conf |
 |---|---|---|---|---|---|---|
@@ -197,6 +197,6 @@ Recorded at PR time on branch `feat/section-h`:
 - [x] **Coinbase: framework mapping (H2) + gas annotation table (H3) complete.** Detail file: `docs/case-study-coinbase.md`. Test: `casestudy/coinbase/test/h3-gas/SpendGasMeasureH3.t.sol` (4 callee-frame measurements covering the three SSTORE regimes + revoke).
 - [x] **MetaMask: enforcer mapping (H4) + cross-hop conclusion (H5, evidence level: local PASS) complete.** Detail file: `docs/case-study-metamask.md`. Test: `casestudy/metamask/test/h5-crosshop/CrossHopEnforcement.t.sol` (2 PASS).
 - [x] **Gradient table rows filled (H.6.1 / H.6.2)** with both qualitative and quantitative columns; aligned/divergent analysis (H.6.3) has code-ref or measurement backing on every point.
-- [x] **Figures**: `docs/figures/gradient_table.svg` (unchanged baseline); new `docs/figures/casestudy_mapping.svg` overlays the three systems on the seven enforceability axes.
+- [x] **Figures**: new `docs/figures/casestudy_mapping.svg` overlays the three systems on the seven enforceability axes.
 - [x] **One commit per section** on `feat/section-h`: `7fbab9f` (H0+H1) → `119abbf` (H2+H3) → `53b58e4` (H4+H5) → this commit (H6+H7+H8).
-- [ ] **PR `feat/section-h` → `main`** (opened at the end of this commit).
+- [x] **PR `feat/section-h` → `main`** — PR #2.
