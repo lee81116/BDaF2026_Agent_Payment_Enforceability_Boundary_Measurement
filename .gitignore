@@ -9,3 +9,10 @@ docs/book/
 # Env
 .env
 .claude/
+.DS_Store
+
+# Vendored case-study deps (kept locally for forge build; pinned in each VERSION.md)
+casestudy/*/lib/
+casestudy/*/out/
+casestudy/*/cache/
+casestudy/*/broadcast/

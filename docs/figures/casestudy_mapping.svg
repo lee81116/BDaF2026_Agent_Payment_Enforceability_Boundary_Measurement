@@ -1,0 +1,193 @@
+<svg viewBox="0 0 1100 460" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="t d">
+  <title id="t">Case study mapping — host vs Coinbase vs MetaMask</title>
+  <desc id="d">Section H 對照圖:Host(本專案)、Coinbase Spend Permissions、MetaMask Delegation Framework 三系統在 E1/E2/E3 與 r_rev / r_scope(單層、跨層)/ r_conf 七個軸上的位置;每格附依據(模組名 + gas 或 file:line)。</desc>
+  <style>
+    .ttl{font:700 22px -apple-system,'Segoe UI',Roboto,'Noto Sans TC',sans-serif;fill:#1f2933}
+    .sub{font:12px -apple-system,'Segoe UI',Roboto,'Noto Sans TC',sans-serif;fill:#5b6b7b}
+    .hdr{font:700 13px -apple-system,'Segoe UI',Roboto,'Noto Sans TC',sans-serif;fill:#1f2933}
+    .hsub{font:10px -apple-system,'Segoe UI',Roboto,sans-serif;fill:#5b6b7b}
+    .syslbl{font:700 14px -apple-system,'Segoe UI',Roboto,'Noto Sans TC',sans-serif;fill:#1f2933}
+    .sysmeta{font:10px ui-monospace,Menlo,monospace;fill:#5b6b7b}
+    .stat{font:700 14px -apple-system,'Segoe UI',Roboto,'Noto Sans TC',sans-serif}
+    .det{font:10px ui-monospace,Menlo,monospace;fill:#3a4a57}
+    .cap{font:11px -apple-system,'Segoe UI',Roboto,'Noto Sans TC',sans-serif;fill:#3a4a57}
+    .leg{font:11px -apple-system,'Segoe UI',Roboto,'Noto Sans TC',sans-serif;fill:#3a4a57}
+  </style>
+  <rect x="1" y="1" width="1098" height="458" rx="14" fill="#ffffff" stroke="#d9e0e6"/>
+  <text x="24" y="32" class="ttl">Case study mapping:Host × Coinbase × MetaMask</text>
+  <text x="24" y="52" class="sub">每格內:狀態 + 依據(模組名 / 量測值 / file:line)· 完整 code ref 見 docs/case-study-coinbase.md 與 case-study-metamask.md</text>
+
+  <!-- header row -->
+  <rect x="20" y="72" width="170" height="42" rx="6" fill="#eef1f4" stroke="#d9e0e6"/>
+  <text x="30" y="90" class="hsub">系統 ＼ 軸</text>
+  <text x="30" y="105" class="hsub">(pinned)</text>
+
+  <rect x="194" y="72" width="115" height="42" rx="6" fill="#eef1f4" stroke="#d9e0e6"/>
+  <text x="252" y="89" text-anchor="middle" class="hdr">E1</text>
+  <text x="252" y="104" text-anchor="middle" class="hsub">access</text>
+
+  <rect x="313" y="72" width="115" height="42" rx="6" fill="#eef1f4" stroke="#d9e0e6"/>
+  <text x="371" y="89" text-anchor="middle" class="hdr">E2</text>
+  <text x="371" y="104" text-anchor="middle" class="hsub">transaction</text>
+
+  <rect x="432" y="72" width="115" height="42" rx="6" fill="#eef1f4" stroke="#d9e0e6"/>
+  <text x="490" y="89" text-anchor="middle" class="hdr">E3</text>
+  <text x="490" y="104" text-anchor="middle" class="hsub">contextual</text>
+
+  <rect x="551" y="72" width="115" height="42" rx="6" fill="#eef1f4" stroke="#d9e0e6"/>
+  <text x="609" y="89" text-anchor="middle" class="hdr">r_rev</text>
+  <text x="609" y="104" text-anchor="middle" class="hsub">撤銷</text>
+
+  <rect x="670" y="72" width="115" height="42" rx="6" fill="#eef1f4" stroke="#d9e0e6"/>
+  <text x="728" y="89" text-anchor="middle" class="hdr">r_scope 單層</text>
+  <text x="728" y="104" text-anchor="middle" class="hsub">single-hop</text>
+
+  <rect x="789" y="72" width="135" height="42" rx="6" fill="#eef1f4" stroke="#d9e0e6"/>
+  <text x="857" y="89" text-anchor="middle" class="hdr">r_scope 跨層</text>
+  <text x="857" y="104" text-anchor="middle" class="hsub">cross-hop</text>
+
+  <rect x="928" y="72" width="150" height="42" rx="6" fill="#eef1f4" stroke="#d9e0e6"/>
+  <text x="1003" y="89" text-anchor="middle" class="hdr">r_conf</text>
+  <text x="1003" y="104" text-anchor="middle" class="hsub">語意誠實</text>
+
+  <!-- Row 1: Host -->
+  <rect x="20" y="118" width="170" height="100" rx="6" fill="#eef1f4" stroke="#d9e0e6"/>
+  <text x="30" y="148" class="syslbl">Host</text>
+  <text x="30" y="166" class="sysmeta">本專案 Escrow + 8 modules</text>
+  <text x="30" y="180" class="sysmeta">D/E 量測:docs/gas-results.md</text>
+  <text x="30" y="196" class="sysmeta">G escape:CrossHopEscape.t</text>
+  <text x="30" y="210" class="sysmeta">F r_conf:RConfCalldata.t</text>
+
+  <rect x="194" y="118" width="115" height="100" rx="8" fill="#e9f7f0" stroke="#2f9e6f"/>
+  <text x="252" y="158" text-anchor="middle" class="stat" fill="#1f7a55">✓</text>
+  <text x="252" y="180" text-anchor="middle" class="det">Target/Selector</text>
+  <text x="252" y="194" text-anchor="middle" class="det">~2,557 cold</text>
+
+  <rect x="313" y="118" width="115" height="100" rx="8" fill="#e9f7f0" stroke="#2f9e6f"/>
+  <text x="371" y="158" text-anchor="middle" class="stat" fill="#1f7a55">✓</text>
+  <text x="371" y="180" text-anchor="middle" class="det">Value/Token/Apr</text>
+  <text x="371" y="194" text-anchor="middle" class="det">~284</text>
+
+  <rect x="432" y="118" width="115" height="100" rx="8" fill="#e9f7f0" stroke="#2f9e6f"/>
+  <text x="490" y="158" text-anchor="middle" class="stat" fill="#1f7a55">✓</text>
+  <text x="490" y="180" text-anchor="middle" class="det">Daily/Expiry</text>
+  <text x="490" y="194" text-anchor="middle" class="det">5,900 RESET</text>
+
+  <rect x="551" y="118" width="115" height="100" rx="8" fill="#e9f7f0" stroke="#2f9e6f"/>
+  <text x="609" y="158" text-anchor="middle" class="stat" fill="#1f7a55">✓</text>
+  <text x="609" y="180" text-anchor="middle" class="det">E3_Revocation</text>
+  <text x="609" y="194" text-anchor="middle" class="det">~2,297 cold</text>
+
+  <rect x="670" y="118" width="115" height="100" rx="8" fill="#e9f7f0" stroke="#2f9e6f"/>
+  <text x="728" y="158" text-anchor="middle" class="stat" fill="#1f7a55">✓</text>
+  <text x="728" y="180" text-anchor="middle" class="det">spender/token</text>
+  <text x="728" y="194" text-anchor="middle" class="det">在 settle 內</text>
+
+  <rect x="789" y="118" width="135" height="100" rx="8" fill="#fbe9ec" stroke="#d6455d"/>
+  <text x="857" y="158" text-anchor="middle" class="stat" fill="#b3273f">✗</text>
+  <text x="857" y="180" text-anchor="middle" class="det">Section G escape</text>
+  <text x="857" y="194" text-anchor="middle" class="det">流出 3.5 &gt; 2</text>
+
+  <rect x="928" y="118" width="150" height="100" rx="8" fill="#fbe9ec" stroke="#d6455d"/>
+  <text x="1003" y="158" text-anchor="middle" class="stat" fill="#b3273f">✗</text>
+  <text x="1003" y="180" text-anchor="middle" class="det">Section F</text>
+  <text x="1003" y="194" text-anchor="middle" class="det">calldata 相同</text>
+
+  <!-- Row 2: Coinbase -->
+  <rect x="20" y="222" width="170" height="100" rx="6" fill="#eef1f4" stroke="#d9e0e6"/>
+  <text x="30" y="252" class="syslbl">Coinbase</text>
+  <text x="30" y="270" class="sysmeta">spend-permissions v1.0.0</text>
+  <text x="30" y="284" class="sysmeta">54e99c7e</text>
+  <text x="30" y="298" class="sysmeta">SpendPermissionManager.sol</text>
+  <text x="30" y="312" class="sysmeta">@0xf85210B2…dC9b67Ad</text>
+
+  <rect x="194" y="222" width="115" height="100" rx="8" fill="#fff7e6" stroke="#d98e10"/>
+  <text x="252" y="262" text-anchor="middle" class="stat" fill="#9a6308">△</text>
+  <text x="252" y="284" text-anchor="middle" class="det">token-only</text>
+  <text x="252" y="298" text-anchor="middle" class="det">無任意 call</text>
+
+  <rect x="313" y="222" width="115" height="100" rx="8" fill="#e9f7f0" stroke="#2f9e6f"/>
+  <text x="371" y="262" text-anchor="middle" class="stat" fill="#1f7a55">✓</text>
+  <text x="371" y="284" text-anchor="middle" class="det">allowance L704</text>
+  <text x="371" y="298" text-anchor="middle" class="det">~284 比較</text>
+
+  <rect x="432" y="222" width="115" height="100" rx="8" fill="#e9f7f0" stroke="#2f9e6f"/>
+  <text x="490" y="262" text-anchor="middle" class="stat" fill="#1f7a55">✓</text>
+  <text x="490" y="284" text-anchor="middle" class="det">period L504–553</text>
+  <text x="490" y="298" text-anchor="middle" class="det">SSTORE SET 22.5k</text>
+
+  <rect x="551" y="222" width="115" height="100" rx="8" fill="#e9f7f0" stroke="#2f9e6f"/>
+  <text x="609" y="262" text-anchor="middle" class="stat" fill="#1f7a55">✓</text>
+  <text x="609" y="284" text-anchor="middle" class="det">revoke L397/406</text>
+  <text x="609" y="298" text-anchor="middle" class="det">~33.5k SET 全程</text>
+
+  <rect x="670" y="222" width="115" height="100" rx="8" fill="#e9f7f0" stroke="#2f9e6f"/>
+  <text x="728" y="262" text-anchor="middle" class="stat" fill="#1f7a55">✓</text>
+  <text x="728" y="284" text-anchor="middle" class="det">requireSender</text>
+  <text x="728" y="298" text-anchor="middle" class="det">L422 spender</text>
+
+  <rect x="789" y="222" width="135" height="100" rx="8" fill="#f4f7f9" stroke="#cdd6de"/>
+  <text x="857" y="262" text-anchor="middle" class="stat" fill="#8a97a3">—</text>
+  <text x="857" y="284" text-anchor="middle" class="det">無 redelegation</text>
+  <text x="857" y="298" text-anchor="middle" class="det">設計上避開</text>
+
+  <rect x="928" y="222" width="150" height="100" rx="8" fill="#fbe9ec" stroke="#d6455d"/>
+  <text x="1003" y="262" text-anchor="middle" class="stat" fill="#b3273f">✗</text>
+  <text x="1003" y="284" text-anchor="middle" class="det">extraData 不檢查</text>
+  <text x="1003" y="298" text-anchor="middle" class="det">L47 opaque</text>
+
+  <!-- Row 3: MetaMask -->
+  <rect x="20" y="326" width="170" height="100" rx="6" fill="#eef1f4" stroke="#d9e0e6"/>
+  <text x="30" y="356" class="syslbl">MetaMask</text>
+  <text x="30" y="374" class="sysmeta">delegation-framework v1.3.0</text>
+  <text x="30" y="388" class="sysmeta">bfbdf979</text>
+  <text x="30" y="402" class="sysmeta">DelegationManager.sol +</text>
+  <text x="30" y="416" class="sysmeta">19 enforcers</text>
+
+  <rect x="194" y="326" width="115" height="100" rx="8" fill="#e9f7f0" stroke="#2f9e6f"/>
+  <text x="252" y="366" text-anchor="middle" class="stat" fill="#1f7a55">✓</text>
+  <text x="252" y="388" text-anchor="middle" class="det">AllowedTargets/</text>
+  <text x="252" y="402" text-anchor="middle" class="det">Methods 26–51</text>
+
+  <rect x="313" y="326" width="115" height="100" rx="8" fill="#e9f7f0" stroke="#2f9e6f"/>
+  <text x="371" y="366" text-anchor="middle" class="stat" fill="#1f7a55">✓</text>
+  <text x="371" y="388" text-anchor="middle" class="det">ValueLte 25–43</text>
+  <text x="371" y="402" text-anchor="middle" class="det">+TransferAmount</text>
+
+  <rect x="432" y="326" width="115" height="100" rx="8" fill="#e9f7f0" stroke="#2f9e6f"/>
+  <text x="490" y="366" text-anchor="middle" class="stat" fill="#1f7a55">✓</text>
+  <text x="490" y="388" text-anchor="middle" class="det">Period enforcers</text>
+  <text x="490" y="402" text-anchor="middle" class="det">+Timestamp/Block</text>
+
+  <rect x="551" y="326" width="115" height="100" rx="8" fill="#e9f7f0" stroke="#2f9e6f"/>
+  <text x="609" y="366" text-anchor="middle" class="stat" fill="#1f7a55">✓</text>
+  <text x="609" y="388" text-anchor="middle" class="det">disableDelegation</text>
+  <text x="609" y="402" text-anchor="middle" class="det">DM L90,186</text>
+
+  <rect x="670" y="326" width="115" height="100" rx="8" fill="#e9f7f0" stroke="#2f9e6f"/>
+  <text x="728" y="366" text-anchor="middle" class="stat" fill="#1f7a55">✓</text>
+  <text x="728" y="388" text-anchor="middle" class="det">leaf delegate</text>
+  <text x="728" y="402" text-anchor="middle" class="det">L156 check</text>
+
+  <rect x="789" y="326" width="135" height="100" rx="8" fill="#e9f7f0" stroke="#2f9e6f"/>
+  <text x="857" y="362" text-anchor="middle" class="stat" fill="#1f7a55">✓ 沿鏈</text>
+  <text x="857" y="384" text-anchor="middle" class="det">DM L208–294 chain</text>
+  <text x="857" y="398" text-anchor="middle" class="det">+hash-keyed state</text>
+  <text x="857" y="412" text-anchor="middle" class="det">2-hop ≈ 63,396 gas</text>
+
+  <rect x="928" y="326" width="150" height="100" rx="8" fill="#fbe9ec" stroke="#d6455d"/>
+  <text x="1003" y="366" text-anchor="middle" class="stat" fill="#b3273f">✗</text>
+  <text x="1003" y="388" text-anchor="middle" class="det">無 enforcer</text>
+  <text x="1003" y="402" text-anchor="middle" class="det">同我們 F 結論</text>
+
+  <!-- Legend -->
+  <rect x="20" y="436" width="14" height="14" rx="3" fill="#e9f7f0" stroke="#2f9e6f"/>
+  <text x="40" y="448" class="leg">鏈上可強制(附依據)</text>
+  <rect x="200" y="436" width="14" height="14" rx="3" fill="#fff7e6" stroke="#d98e10"/>
+  <text x="220" y="448" class="leg">部分/粗粒度</text>
+  <rect x="320" y="436" width="14" height="14" rx="3" fill="#f4f7f9" stroke="#cdd6de"/>
+  <text x="340" y="448" class="leg">無此語意(該系統未模型化)</text>
+  <rect x="540" y="436" width="14" height="14" rx="3" fill="#fbe9ec" stroke="#d6455d"/>
+  <text x="560" y="448" class="leg">破(對應 F/G 紅格)</text>
+  <text x="700" y="448" class="leg" fill="#5b6b7b">數字單位:gas(callee-frame 除非另註);MetaMask 2-hop 為 caller-side gasleft</text>
+</svg>
