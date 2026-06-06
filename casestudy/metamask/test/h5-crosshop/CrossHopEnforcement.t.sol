@@ -42,9 +42,9 @@ contract CrossHopEnforcementTest is Test {
     DelegationManager internal dm;
     NativeTokenTransferAmountEnforcer internal capEnforcer;
     MockDelegator internal userAcct; // root delegator (the User)
-    MockDelegator internal aAcct;    // intermediate delegator (Agent A)
+    MockDelegator internal aAcct; // intermediate delegator (Agent A)
 
-    address internal agentB = address(0xB02);   // leaf delegate (Agent B, EOA)
+    address internal agentB = address(0xB02); // leaf delegate (Agent B, EOA)
     address payable internal provider = payable(address(0xD057)); // recipient
 
     uint256 internal constant ROOT_CAP = 2 ether; // User→A allowance
@@ -96,11 +96,7 @@ contract CrossHopEnforcementTest is Test {
         // (1) A's direct spend.
         uint256 firstSpend = 1.5 ether;
         _redeem(address(aAcct), _chain1(delUserToA), provider, firstSpend);
-        assertEq(
-            capEnforcer.spentMap(address(dm), hashUserToA),
-            firstSpend,
-            "User->A counter after A's direct spend"
-        );
+        assertEq(capEnforcer.spentMap(address(dm), hashUserToA), firstSpend, "User->A counter after A's direct spend");
         assertEq(provider.balance, firstSpend, "provider got A's spend");
 
         // (2) B tries to overspend through the chain. Total would be
@@ -109,11 +105,7 @@ contract CrossHopEnforcementTest is Test {
         _redeem(agentB, _chain2(delAToB, delUserToA), provider, 1 ether);
 
         // State unchanged after revert.
-        assertEq(
-            capEnforcer.spentMap(address(dm), hashUserToA),
-            firstSpend,
-            "counter unchanged after revert"
-        );
+        assertEq(capEnforcer.spentMap(address(dm), hashUserToA), firstSpend, "counter unchanged after revert");
         assertEq(provider.balance, firstSpend, "no extra ETH leaked");
     }
 
@@ -141,11 +133,7 @@ contract CrossHopEnforcementTest is Test {
         // shared counter to exactly 2 ether. Measure caller-side gas.
         bytes memory cd = abi.encodeCall(
             DelegationManager.redeemDelegations,
-            (
-                _wrapPermissionContexts(_chain2(delAToB, delUserToA)),
-                _wrapModes(),
-                _wrapExecCalldatas(provider, 0.5 ether)
-            )
+            (_wrapPermissionContexts(_chain2(delAToB, delUserToA)), _wrapModes(), _wrapExecCalldatas(provider, 0.5 ether))
         );
         vm.prank(agentB);
         uint256 g0 = gasleft();
@@ -153,12 +141,13 @@ contract CrossHopEnforcementTest is Test {
         uint256 bRedeemGas = g0 - gasleft();
         require(ok, "B's cross-hop redeem reverted unexpectedly");
         console2.log("[H5] B cross-hop redeem (2 layers) caller-side gas:", bRedeemGas);
+        // The 63,396 figure is quoted in docs/case-study.md H.5 / H.6.2
+        // and docs/case-study-metamask.md H5.3. Golden rule #2: if this
+        // ever drifts, open the trace and fix the model — never widen the
+        // tolerance.
+        assertApproxEqAbs(bRedeemGas, 63_396, 2);
 
-        assertEq(
-            capEnforcer.spentMap(address(dm), hashUserToA),
-            2 ether,
-            "shared counter at cap"
-        );
+        assertEq(capEnforcer.spentMap(address(dm), hashUserToA), 2 ether, "shared counter at cap");
         assertEq(provider.balance, 2 ether, "provider got A's 1.5 + B's 0.5");
 
         // One more wei from B reverts — the global counter is enforced.
@@ -175,11 +164,7 @@ contract CrossHopEnforcementTest is Test {
 
     function _buildUserToA() internal view returns (Delegation memory) {
         Caveat[] memory cvs = new Caveat[](1);
-        cvs[0] = Caveat({
-            enforcer: address(capEnforcer),
-            terms: abi.encode(ROOT_CAP),
-            args: ""
-        });
+        cvs[0] = Caveat({ enforcer: address(capEnforcer), terms: abi.encode(ROOT_CAP), args: "" });
         return Delegation({
             delegate: address(aAcct),
             delegator: address(userAcct),
@@ -192,27 +177,13 @@ contract CrossHopEnforcementTest is Test {
 
     function _buildAToB(bytes32 parentHash) internal view returns (Delegation memory) {
         return Delegation({
-            delegate: agentB,
-            delegator: address(aAcct),
-            authority: parentHash,
-            caveats: new Caveat[](0),
-            salt: 0,
-            signature: ""
+            delegate: agentB, delegator: address(aAcct), authority: parentHash, caveats: new Caveat[](0), salt: 0, signature: ""
         });
     }
 
-    function _redeem(
-        address caller,
-        Delegation[] memory chain,
-        address payable target,
-        uint256 value
-    ) internal {
+    function _redeem(address caller, Delegation[] memory chain, address payable target, uint256 value) internal {
         vm.prank(caller);
-        dm.redeemDelegations(
-            _wrapPermissionContexts(chain),
-            _wrapModes(),
-            _wrapExecCalldatas(target, value)
-        );
+        dm.redeemDelegations(_wrapPermissionContexts(chain), _wrapModes(), _wrapExecCalldatas(target, value));
     }
 
     function _chain1(Delegation memory d0) internal pure returns (Delegation[] memory chain) {
@@ -220,10 +191,7 @@ contract CrossHopEnforcementTest is Test {
         chain[0] = d0;
     }
 
-    function _chain2(
-        Delegation memory leaf,
-        Delegation memory root
-    ) internal pure returns (Delegation[] memory chain) {
+    function _chain2(Delegation memory leaf, Delegation memory root) internal pure returns (Delegation[] memory chain) {
         chain = new Delegation[](2);
         chain[0] = leaf;
         chain[1] = root;

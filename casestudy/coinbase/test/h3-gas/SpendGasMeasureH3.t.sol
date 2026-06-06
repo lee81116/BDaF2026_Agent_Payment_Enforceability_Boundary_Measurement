@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.23;
 
-import {console2} from "forge-std/Test.sol";
-
 import {SpendPermissionManager} from "../../src/SpendPermissionManager.sol";
 import {SpendPermissionManagerBase} from "../base/SpendPermissionManagerBase.sol";
 
@@ -15,8 +13,18 @@ import {SpendPermissionManagerBase} from "../base/SpendPermissionManagerBase.sol
 ///         which is `forge --gas-report`-style and bundles caller-side overhead.
 ///
 /// @dev    Compile profile: `casestudy/coinbase/foundry.toml` (Coinbase's
-///         settings). Host repo's `foundry.toml` (solc 0.8.26 / optimizer 200
-///         / via_ir=false) is untouched (golden rule #1).
+///         settings, with solc pinned at 0.8.35 — the version under which the
+///         recorded H3 numbers were captured). Host repo's `foundry.toml`
+///         (solc 0.8.26 / optimizer 200 / via_ir=false) is untouched
+///         (golden rule #1).
+///
+/// @dev    Logging: emits DSTest `log_named_uint` events, which forge decodes
+///         natively under `-vv`. Two-arg `console2.log(string, uint256)` was
+///         silently reverting inside the console precompile under the
+///         forge-std version Coinbase pins (commit `58d3051`) + forge 1.7.1
+///         (unknown selector `0x9710a9d0` for `ConsoleCalls`), so the gas
+///         numbers were only visible under `-vvvv` traces. The DSTest path
+///         is version-independent.
 abstract contract SpendGasMeasureH3Base is SpendPermissionManagerBase {
     SpendPermissionManager.SpendPermission internal perm;
 
@@ -45,21 +53,19 @@ abstract contract SpendGasMeasureH3Base is SpendPermissionManagerBase {
         vm.deal(spender, 1 wei);
     }
 
-    function _measureSpend(string memory label) internal {
-        bytes memory cd =
-            abi.encodeCall(SpendPermissionManager.spend, (perm, SPEND_VALUE));
+    /// Measure callee-frame gas of one `spend()` and assert it matches the
+    /// recorded value to within ±2 gas. Golden rule #2: if the measured
+    /// number drifts, open a trace and fix the opcode model — never widen
+    /// the tolerance.
+    function _measureSpend(string memory label, uint256 expected) internal {
+        bytes memory cd = abi.encodeCall(SpendPermissionManager.spend, (perm, SPEND_VALUE));
         vm.prank(spender);
         (bool ok,) = address(mockSpendPermissionManager).call(cd);
         require(ok, "spend reverted");
 
         uint256 gasUsed = vm.lastCallGas().gasTotalUsed;
-        console2.log("[H3]", label);
-        console2.log("[H3]   callee-frame gas:", gasUsed);
-
-        // Wide sanity band — includes the full transfer path
-        // (account.execute -> SPM.receive() -> safeTransferETH).
-        assertGt(gasUsed, 10_000);
-        assertLt(gasUsed, 300_000);
+        emit log_named_uint(label, gasUsed);
+        assertApproxEqAbs(gasUsed, expected, 2);
     }
 }
 
@@ -75,7 +81,7 @@ contract SpendGasMeasureH3 is SpendGasMeasureH3Base {
     /// by this SSTORE plus the native-transfer external-call chain.
     function test_gas_spend_native_cold_SET() public {
         vm.warp(perm.start);
-        _measureSpend("spend native cold (SET regime, host = SET 23k)");
+        _measureSpend("[H3] spend native cold (SET regime) callee-frame gas", 64_821);
     }
 
     /// Regime ③: second spend in the SAME tx — the `_lastUpdatedPeriod[hash]`
@@ -86,13 +92,12 @@ contract SpendGasMeasureH3 is SpendGasMeasureH3Base {
     /// EVM cold/warm/dirty distinction, matching the host doc's caveat.
     function test_gas_spend_native_dirty_sameTx() public {
         vm.warp(perm.start);
-        bytes memory cd =
-            abi.encodeCall(SpendPermissionManager.spend, (perm, SPEND_VALUE));
+        bytes memory cd = abi.encodeCall(SpendPermissionManager.spend, (perm, SPEND_VALUE));
         vm.prank(spender);
         (bool ok1,) = address(mockSpendPermissionManager).call(cd);
         require(ok1, "first spend reverted");
 
-        _measureSpend("spend native warm dirty (regime , host = dirty 1.1k)");
+        _measureSpend("[H3] spend native warm dirty (regime 3) callee-frame gas", 33_237);
     }
 
     /// Account-side revoke. Dominant write is `_isRevoked[hash]` going
@@ -108,10 +113,8 @@ contract SpendGasMeasureH3 is SpendGasMeasureH3Base {
         require(ok, "revoke reverted");
 
         uint256 gasUsed = vm.lastCallGas().gasTotalUsed;
-        console2.log("[H3] revoke by account (SSTORE SET) callee gas:", gasUsed);
-
-        assertGt(gasUsed, 20_000);
-        assertLt(gasUsed, 80_000);
+        emit log_named_uint("[H3] revoke by account (SSTORE SET) callee-frame gas", gasUsed);
+        assertApproxEqAbs(gasUsed, 33_545, 2);
     }
 }
 
@@ -132,6 +135,6 @@ contract SpendGasMeasureH3_Reset is SpendGasMeasureH3Base {
     }
 
     function test_gas_spend_native_crossTx_RESET() public {
-        _measureSpend("spend native cross-tx (RESET regime, host = RESET 5.9k)");
+        _measureSpend("[H3] spend native cross-tx (RESET regime) callee-frame gas", 46_537);
     }
 }
