@@ -19,7 +19,9 @@ checks it against real systems.
 Status: **A–H done** (case studies: Coinbase Spend Permissions, MetaMask
 Delegation Framework; see `docs/case-study.md`), plus the E3 extensions
 (sliding-window rate limit, delegation-depth bounds). `forge test` is green
-(102 tests, incl. fail-closed tests for malformed window parameters).
+(106 tests, incl. fail-closed tests for malformed window parameters and 4
+adversarial tests — reentrancy/replay/fragmentation/timing, see
+`docs/threat-coverage.md`).
 
 ## Golden rules (non-negotiable)
 

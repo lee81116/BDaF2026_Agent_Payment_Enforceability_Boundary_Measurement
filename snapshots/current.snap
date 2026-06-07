@@ -1,3 +1,7 @@
+AttackVectorsTest:test_T1_ReentrancyBoundedByCumulativeCap() (gas: 328539)
+AttackVectorsTest:test_T2_ReplayBoundedNotPrevented() (gas: 213828)
+AttackVectorsTest:test_T3_FragmentationBoundedOnlyByCumulativeCap() (gas: 242244)
+AttackVectorsTest:test_T4_FixedWindowAllowsBurstAcrossReset() (gas: 198135)
 BatchCurveTest:test_Baseline0_NoPolicy() (gas: 1347278)
 BatchCurveTest:test_Baseline1_E2Only() (gas: 1423219)
 BatchCurveTest:test_Baseline2_FullE3() (gas: 1497356)

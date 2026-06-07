@@ -32,7 +32,7 @@ prediction-vs-verdict ledger. Evidence dossiers:
 | Cross-hop r_scope break (Section G) | **3.5 ETH drained from a 2 ETH authorization**, no local cap violated; depth bounds don't fix it (escape replays at legal depth) | §6.2 |
 | Production closure price | MetaMask closes the cross-hop gap at **63,396 gas** (2-layer redemption, caller-side) | §7.2 |
 | Production strategies | Coinbase *restricts the surface* · MetaMask *pays to walk the chain* · x402 *leaves the chain* — none attempts r_conf on-chain | §7 |
-| Verification | host **102/102**, Coinbase case study **4/4**, MetaMask **2/2**; every gas number asserted at **±2** and reproduced bit-exact cross-OS | §10 |
+| Verification | host **106/106** (incl. 4 adversarial tests), Coinbase case study **4/4**, MetaMask **2/2**; every gas number asserted at **±2** and reproduced bit-exact cross-OS | §10 |
 
 Every claim traces to a passing test or a documented structural argument; gas
 numbers are *predicted from an opcode model first*, then asserted (`±2`) — misses
@@ -70,7 +70,7 @@ foundry.toml  Makefile  README.md  CLAUDE.md
 
 ```bash
 forge --version     # must be 1.7.1 (4072e487)
-make build && make test          # host: 102 passed / 0 failed (gas assertions included)
+make build && make test          # host: 106 passed / 0 failed (gas assertions included)
 make snap-check                  # 0 drift vs snapshots/current.snap
 
 # Section E batch curve, regenerated row-by-row:

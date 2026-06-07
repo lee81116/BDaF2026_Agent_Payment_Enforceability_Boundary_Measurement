@@ -2,7 +2,7 @@
 
 **Final report** · 2026-06-06
 **Toolchain (pinned)**: forge 1.7.1 (`4072e487`) · solc 0.8.26 · optimizer 200 · `via_ir = false`
-**Status**: Sections A–H complete (+ E3 extensions) · host suite 102/102 green · case-study suites 4/4 (Coinbase) and 2/2 (MetaMask) green
+**Status**: Sections A–H complete (+ E3 extensions, adversarial suite) · host suite 106/106 green · case-study suites 4/4 (Coinbase) and 2/2 (MetaMask) green
 
 ---
 
@@ -293,7 +293,8 @@ What the measured policy layer actually buys, stated as threats. Every "mitigate
 | Spend under revoked authority | `E3_Revocation` revert | `test/policies/E3_Revocation.t.sol` |
 | Call to disallowed target / selector | E1 allowlists (module-level) | `test/policies/E1_*.t.sol` |
 | Cross-hop overspend, **given root-anchored state** | chain-walked caveats + hash-keyed counter | MetaMask H5 tests (§7.2) |
-| Replay of a settlement | **bounded, not prevented** — no per-settlement nonce exists; repeated valid settlements are capped by the per-request and cumulative ceilings | §5.1 caps |
+| Replay of a settlement | **bounded, not prevented** — no per-settlement nonce exists; repeated valid settlements are capped by the per-request and cumulative ceilings | T2 (§8.1); §5.1 caps |
+| Reentrant drain of the pool | **bounded by the cap** — `settle` commits state before the external call (CEI), so a reentrant `settle` reverts `ExceedsDailyCap` | T1 (§8.1); SWC-107 |
 
 **Not mitigated on-chain (and cannot be, locally):**
 
@@ -308,6 +309,17 @@ What the measured policy layer actually buys, stated as threats. Every "mitigate
 
 The first table is the priced ceiling; the second is the residue that must be bought with off-chain trust (oracle, attestation, TEE, ZK — each a relocation, not a removal).
 
+### 8.1 Adversarial tests — prose rows made executable
+
+Four tests in `test/adversarial/AttackVectors.t.sol` turn the threat-model rows above into running demonstrations, each tagged with its literature source (Zhang et al. 2026 §5.2 or SWC-107). Full coverage map: `docs/threat-coverage.md`.
+
+| # | Attack | Source | Result |
+|---|---|---|---|
+| T1 | Reentrancy on `settle` | SWC-107 | **Bounded by the cap.** Checks-effects-interactions commits `dailyState`/`balances` before the external call, so the reentrant `settle` sees `spent == cap` and reverts; the recipient receives exactly 1 ether, never a second. No explicit reentrancy guard is needed. |
+| T2 | Repetition / replay | Zhang §5.2 "repetition" | **Bounded, not prevented.** No per-settlement nonce, so five identical calls are not duplicate-rejected; the daily cap admits the first three and reverts the 4th/5th. The cap is a ceiling, not a uniqueness guarantee. |
+| T3 | Fragmentation | Zhang §5.2 "fragmentation" | **Bounded only by the E3 cap.** Six sub-per-request-cap spends (0.5 ether each) reach exactly the 3-ether cumulative cap; the 7th reverts. A per-request (E2) cap alone would let fragmentation run unbounded — this is the affirmative case for why the cumulative cap is load-bearing. |
+| T4 | Timing manipulation | Zhang §5.2 "timing manipulation" | **Attack succeeds (negative result).** The fixed-window `CumulativeDailyCap` admits 2× the daily cap within ~2 seconds across a day boundary. The count-based sliding window does not close this *value* burst. See limitation 9 below. |
+
 ## 9. Limitations
 
 1. **Callee-frame ≠ end-to-end.** Numbers exclude the 21,000 transaction base and caller-side CALL overhead; they price the policy check increment, not the wallet-visible total.
@@ -318,6 +330,7 @@ The first table is the priced ceiling; the second is the residue that must be bo
 6. **r_conf is demonstrated for a bare payment primitive.** Systems that *import* off-chain truth (oracles, attestations, TEEs, ZK) can move the boundary at the price of relocated trust — measured here only as an argument, not an implementation.
 7. **The sliding-window rate limit is measured as a two-bucket approximation, not a true sliding log.** `E3_SlidingWindowRateLimit` is now implemented and measured (§5.1): the count-based two-bucket approximation packs into one slot and lands in the same three SSTORE regimes as the cumulative cap. A *true* sliding log — one that remembers each event's timestamp — is O(events) storage slots, whose cost is bounded analytically (one cold SLOAD + one SSTORE per retained event), not measured here; the two-bucket form is the standard production trade of exactness for a single slot. Delegation-depth bounds are likewise now implemented and measured (`E3_DelegationDepth`, §5.1) and, via `DepthBoundedDelegation`, shown to constrain chain length without closing the budget escape (§6.2). The remaining unimplemented item is host-side cross-hop *closure*: root-anchored compositional enforcement is bounded and answered via the vendored production framework (§7.2) rather than ported into our own escrow.
 8. **Absolute gas numbers are toolchain-specific.** Under `via_ir = true` (or a different solc/optimizer), codegen changes and every absolute number shifts — which is exactly why the toolchain is pinned and treated as part of the experiment's identity. The *structural* findings (the three SSTORE regimes, exact linearity of the batch curve, equal marginals between baselines 1 and 2, the E2 equality) are expected to survive a toolchain change, but this was not re-verified under the IR pipeline.
+9. **The cumulative cap is a fixed window, vulnerable to a reset burst (value dimension).** Adversarial test T4 (§8.1) drains 2× the daily cap within ~2 seconds across the `block.timestamp / 1 days` boundary — the canonical "timing manipulation" attack (Zhang et al. 2026 §5.2). `E3_SlidingWindowRateLimit` mitigates this for the request-*rate* (count) dimension, but it is count-based, not value-based; a sliding-window *value* cap was not implemented, so the value burst is a real, demonstrated limitation of the fixed-window `CumulativeDailyCap`, not a toolchain artifact.
 
 ## 10. Reproducibility
 
@@ -325,7 +338,7 @@ Everything is deterministic under the pinned toolchain; gas numbers reproduce ex
 
 ```sh
 forge --version    # must be 1.7.1 (4072e487)
-forge test         # host: 102 passed / 0 failed
+forge test         # host: 106 passed / 0 failed
 make snap-check    # 0 drift vs snapshots/current.snap (baseline.snap is the phase-1 record, never overwritten)
 
 # Section E curve, regenerated row-by-row:
@@ -341,15 +354,15 @@ Vendoring rules: each system lives under `casestudy/<system>/` with its own `fou
 ## 11. Repository map and history
 
 ```
-src/       Escrow.sol · policies/ (10 modules) · baselines/ (E) · mocks/ (F) · delegation/ (G, + DepthBoundedDelegation)
-test/      policies/ (D) · batch/ (E) · rconf/ (F) · delegation/ (G) · BaseTest.sol
+src/       Escrow.sol · policies/ (10 modules) · baselines/ (E) · mocks/ (F, + ReentrantRecipient) · delegation/ (G, + DepthBoundedDelegation)
+test/      policies/ (D) · batch/ (E) · rconf/ (F) · delegation/ (G) · adversarial/ (§8.1) · BaseTest.sol
 casestudy/ coinbase/ (H2–H3) · metamask/ (H4–H5), each pinned via VERSION.md
 docs/      gas-results.md (D+E) · batch-curve.csv ·
            case-study{,-coinbase,-metamask}.md (H) · figures/*.svg · final-report.md
 snapshots/ baseline.snap (frozen) · current.snap (live)
 ```
 
-Sections and merges: A–B (`9895070`) → C (`f0591e9`, 8 modules + integration) → D (`35d8502`…`bbf0e30`, per-check gas) → E (`ba254f8`…`6ef265c`, batch curve) → F (`6e388d9`, r_conf) → G (`edab10d`, cross-hop escape) → H (`7fbab9f` → `119abbf` → `53b58e4` → `11a9d14`, case studies; merged via PR #2) → H9 post-review fixes (`23bb900`, PR #3: locked case-study gas assertions, Coinbase solc pin, doc reference cleanup) → E3 extensions post-review (`60e7fdf` → `8d311e8`, PR #4: `E3_SlidingWindowRateLimit`, `E3_DelegationDepth`, `DepthBoundedDelegation` under a red→green→measure TDD trail, plus fail-closed tests for malformed window parameters; host suite expanded 78 → 102 tests).
+Sections and merges: A–B (`9895070`) → C (`f0591e9`, 8 modules + integration) → D (`35d8502`…`bbf0e30`, per-check gas) → E (`ba254f8`…`6ef265c`, batch curve) → F (`6e388d9`, r_conf) → G (`edab10d`, cross-hop escape) → H (`7fbab9f` → `119abbf` → `53b58e4` → `11a9d14`, case studies; merged via PR #2) → H9 post-review fixes (`23bb900`, PR #3: locked case-study gas assertions, Coinbase solc pin, doc reference cleanup) → E3 extensions post-review (`60e7fdf` → `8d311e8`, PR #4: `E3_SlidingWindowRateLimit`, `E3_DelegationDepth`, `DepthBoundedDelegation` under a red→green→measure TDD trail, plus fail-closed tests for malformed window parameters; host suite expanded 78 → 102 tests) → adversarial suite (`875c487` → `9780407`, PR #5: reentrancy/replay/fragmentation/timing tests turning threat-model rows into executable demonstrations; host suite 102 → 106 tests).
 
 ## 12. Conclusion
 
