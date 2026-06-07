@@ -7,6 +7,7 @@
 | Commit hash | `bfbdf9795a976833ed2fa000baf42fbb83958b03` |
 | Fetched on | 2026-06-05 |
 | Deployment | Per-chain `DelegationManager` addresses are published in upstream docs/releases; this repo is the source-of-truth contracts (audited by MetaMask) used by ERC-7710 / ERC-7715 toolkits. We deploy locally in Foundry for H5 (no mainnet fork, project rule). |
+| Provenance check | `bash casestudy/verify-pins.sh` — confirms this tag→commit and that `src/DelegationManager.sol` + `src/enforcers/NativeTokenTransferAmountEnforcer.sol` are byte-identical (SHA-256) to upstream at the pin |
 
 ## Build profile (their settings — do NOT merge into our default profile)
 

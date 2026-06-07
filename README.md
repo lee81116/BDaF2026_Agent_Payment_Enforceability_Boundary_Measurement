@@ -76,7 +76,8 @@ make snap-check                  # 0 drift vs snapshots/current.snap
 # Section E batch curve, regenerated row-by-row:
 forge test --match-path test/batch/BatchCurve.t.sol -vv | grep '^CSV,'
 
-# Case studies (vendored pins in casestudy/*/VERSION.md; lib/ re-fetch steps inside):
+# Case studies — provenance first (tag→commit + source SHA-256 vs upstream), then tests:
+bash casestudy/verify-pins.sh                                              # PROVENANCE OK
 cd casestudy/coinbase  && forge test --match-path "test/h3-gas/*" -vv      # 4 PASS, ±2 asserted
 cd casestudy/metamask  && forge test --match-path "test/h5-crosshop/*" -vv # 2 PASS, 63,396 asserted
 ```

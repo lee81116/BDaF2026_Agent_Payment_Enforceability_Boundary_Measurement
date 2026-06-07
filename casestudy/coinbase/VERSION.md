@@ -8,6 +8,7 @@
 | Fetched on | 2026-06-05 |
 | Mainnet deployment | `SpendPermissionManager = 0xf85210B21cC50302F477BA56686d2019dC9b67Ad` (Base · Ethereum · Optimism · Arbitrum · Polygon · Zora · BSC · Avalanche) |
 | Audits referenced | Spearbit / Cantina (2024-10, 2024-11, 2024-12); see upstream `docs/audits` |
+| Provenance check | `bash casestudy/verify-pins.sh` — confirms this tag→commit and that `src/SpendPermissionManager.sol` is byte-identical (SHA-256) to upstream at the pin |
 
 ## Build profile (their settings — do NOT merge into our default profile)
 
