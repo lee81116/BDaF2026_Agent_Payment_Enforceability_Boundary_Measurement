@@ -256,3 +256,67 @@ The pass path (no error data) is therefore the right place to read the
 - `forge test --match-path test/policies/E3_DelegationDepth_Gas.t.sol -vv`
 - New snapshot entries land in `snapshots/current.snap` via `make snap`.
 - Date: 2026-06-06.
+
+---
+
+# Cross-hop closure (Section G′) — per-hop cost of root-anchored enforcement
+
+`RootAnchoredDelegation.executeComposed` closes the Section G escape by walking
+the parent chain to the root and debiting every ancestor's root-anchored counter
+(methodology.md option (b)). Measured callee-frame (`vm.lastCallGas`), same
+predict-then-assert-±2 discipline as Sections D/E — so this number is **directly
+comparable to the host E3 rows**, unlike MetaMask's caller-side 63,396 (H5).
+
+Batch hygiene: each chain primed with a tx0 spend so the measured `spentOf` write
+is RESET (not SET); each depth uses its own recipient pre-dealt 1 wei (so the
+transfer pays no G_newaccount and no depth warms another's recipient account);
+`setUp` in a separate tx so the measured SLOADs are cold.
+
+## Results
+
+| Measure | Depth | Gas | Opcode account |
+|---|---|---:|---|
+| `executeComposed` | 1 (root spends directly) | 26,001 | dispatch + decode 3 args + leaf checks (subject/active/perCallCap, 3 cold SLOADs) + 1 walk hop + value-transfer CALL (cold account 2,600 + 9,000 callvalue) |
+| `executeComposed` | 2 (leaf through one parent) | 35,626 | depth 1 + **one closure hop (9,625)** |
+| `executeComposed` | 3 | 45,251 | depth 2 + **one closure hop (9,625)** |
+| **per-hop closure increment** | d+1 − d | **9,625** | one extra ancestor visit (decomposition below); **constant** across d (O(depth) law: d2−d1 = d3−d2 = 9,625) |
+
+## Per-hop increment — decomposition (the headline number)
+
+The increment isolates exactly one extra iteration of the ancestor walk; the
+leaf's own checks and the single value transfer are identical across depths and
+cancel:
+
+| Component | Gas |
+|---|---:|
+| `spentOf[cur]` cold SLOAD + SSTORE_RESET (the root-anchored counter R+W) | 5,000 |
+| `permissions[cur].cumulativeCap` cold SLOAD | 2,100 |
+| `permissions[cur].parentId` cold SLOAD (to advance `cur`) | 2,100 |
+| mapping-slot keccaks (recomputed per access) + ADD/GT/loop control | ~425 |
+| **total** | **9,625** |
+
+The ~5,000 counter R+W is the **E3 RESET-class cost** (cf. `E3_CumulativeDailyCap`
+RW RESET = 5,900 for the packed daily-state slot; here it is a plain `uint256`
+counter, so slightly less arithmetic); the extra ~4,200 is the two cold
+`Permission` SLOADs needed to traverse one hop. **Cross-hop r_scope is therefore
+enforceable on-chain at O(depth) root-anchored state, ~9,625 gas/hop callee-frame
+— priced, not impassable.**
+
+## Prediction correction (golden rule #2: fix the model, never the tolerance)
+
+The first opcode model estimated the keccak/arith term at ~240, predicting a
+**~~9,440~~** increment. Measurement gave **9,625** (+185). The miss is the
+mapping-slot hashing: under the legacy optimizer (`via_ir = false`) the storage
+slot of `spentOf[cur]` (accessed for the SLOAD then the SSTORE) and the base slot
+of `permissions[cur]` (accessed for `cumulativeCap` then `parentId`) are each
+**recomputed per access** rather than cached, so the per-hop hashing is ~4 keccaks
++ their preimage MSTOREs (~425), not the ~240 first assumed. The three cold-SLOAD
+and one SSTORE_RESET terms were exact; only the hashing residual moved. TOL stayed 2.
+
+## Reproduction
+
+- Toolchain: forge 1.7.1 (4072e487) · solc 0.8.26 · optimizer 200 · via_ir = false.
+- `forge test --match-path test/delegation/RootAnchoredClosure_Gas.t.sol -vv`
+- The behavioral closure (escape blocked) is `test/delegation/RootAnchoredClosure.t.sol`;
+  the Section G escape it closes remains demonstrated in `test/delegation/CrossHopEscape.t.sol`.
+- Date: 2026-06-08.

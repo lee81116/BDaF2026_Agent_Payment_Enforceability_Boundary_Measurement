@@ -2,7 +2,7 @@
 
 **Final report** · 2026-06-06
 **Toolchain (pinned)**: forge 1.7.1 (`4072e487`) · solc 0.8.26 · optimizer 200 · `via_ir = false`
-**Status**: Sections A–H complete (+ E3 extensions, adversarial suite) · host suite 106/106 green · case-study suites 4/4 (Coinbase) and 2/2 (MetaMask) green
+**Status**: Sections A–H complete (+ E3 extensions, adversarial suite, cross-hop closure G′) · host suite 113/113 green · case-study suites 4/4 (Coinbase) and 2/2 (MetaMask) green
 
 ---
 
@@ -206,7 +206,9 @@ A follow-up module isolates *which* mechanism is missing. `src/delegation/DepthB
 
 What closing it would require (see also §7.2): every spend must answer a *global* question — either (a) one shared budget object that the root grant creates and every descendant debits, or (b) ancestor traversal decrementing every ancestor's remaining allowance per spend. Both add state and gas scaling with delegation depth; with the measured single-hop cumulative check at ~2,954 read / ~5,900 read+write, option (b) multiplies roughly that per hop.
 
-> **Claim 2 (the breaks).** r_conf fails by construction at the calldata boundary; cross-hop r_scope fails under local-only state. Both are missing-mechanism problems, not implementation bugs.
+**The closure, built and measured (Section G′).** We now implement option (b) in our own escrow: `src/delegation/RootAnchoredDelegation.sol` walks the parent chain to the root on every spend and debits each ancestor's root-anchored counter (`test/delegation/RootAnchoredClosure.t.sol`). It replays the exact Section G scenario and **closes it** — A's 1.5 + B's 2.0 hits A's 2-ether root counter and reverts; total drained stays at A's legal 1.5, and the original local-only escape remains demonstrated, unchanged, in `CrossHopEscape.t.sol` (the two coexist). The cost is measured callee-frame with the same predict-then-assert-±2 discipline (§5.1): the **per-hop closure increment is 9,625 gas, constant across depth** (depth 1/2/3 = 26,001 / 35,626 / 45,251; d2−d1 = d3−d2 = 9,625 — the O(depth) law). That increment decomposes into ~5,000 for the counter R+W (the E3 RESET class) plus ~4,200 for the two cold `Permission` SLOADs needed to traverse one hop. **Cross-hop r_scope is therefore host-measured as enforceable on-chain at O(depth) root-anchored state, ~9,625 gas/hop — comparable to the E3 RESET regime: the boundary is priced, not impassable.** This does not weaken P2; it completes it — the break was always specific to *local-only* state, and the price of *root-anchored* state is now a number in our own system.
+
+> **Claim 2 (the breaks).** r_conf fails by construction at the calldata boundary; cross-hop r_scope fails under local-only state. r_conf is *impassable*; cross-hop is the *priced* break — closed at ~9,625 gas/hop of root-anchored state (Section G′). Both are missing-mechanism problems, not implementation bugs.
 
 ## 7. Results III — the boundary against production systems (Section H)
 
@@ -256,7 +258,7 @@ Behavioral tests (`casestudy/metamask/test/h5-crosshop/CrossHopEnforcement.t.sol
 | A spends 1.5 of a 2-ether root cap; B attempts 1.0 through the chain (total 2.5) | **Reverts** `allowance-exceeded`; counter and pool unchanged — the Section G escape does not survive |
 | A 1.5 + B 0.5 (exactly cap); then either party attempts 1 wei more | First two succeed, both follow-ups revert — one shared counter, exactly enforced. B's 2-layer redemption: **63,396 gas** (caller-side `gasleft`; asserted ±2; not summable with callee-frame rows) |
 
-The closure matches the mechanism our Section G analysis said would be necessary: a counter anchored to the root delegation that every redemption path debits. Caveat (H5.6): the guarantee is keyed to the delegation hash — issuing a second User→A delegation with a different `salt` creates a fresh counter and re-opens the escape; the root principal must treat each issued hash as the budget.
+The closure matches the mechanism our Section G analysis said would be necessary: a counter anchored to the root delegation that every redemption path debits. **This is now production confirmation of a result we also have host-side**: Section G′ (§6.2) implements the same root-anchored ancestor walk in our own escrow and prices it at **9,625 gas/hop callee-frame**. The two numbers are *not* directly comparable in magnitude — MetaMask's 63,396 is caller-side `gasleft` for a full 2-layer redemption through the production DeleGator/4337 stack, while ours is the isolated callee-frame increment of the closure mechanism itself — but they agree on the shape: cross-hop enforcement costs O(depth) root-anchored state, and that state is the thing that closes the escape. Caveat (H5.6): the guarantee is keyed to the delegation hash — issuing a second User→A delegation with a different `salt` creates a fresh counter and re-opens the escape; the root principal must treat each issued hash as the budget.
 
 **Coverage note (post-extension).** The two E3 modules added after the H sweep have no enforcer analog in the framework: the period enforcers are fixed-window (no sliding weighting), and no enforcer bounds delegation depth — nor could one, since the v1.3.0 `beforeHook` interface never exposes an enforcer's position in (or the length of) the chain. Conversely, our `DepthBoundedDelegation` experiment shows a depth bound would not have substituted for the hash-keyed shared counter anyway: the budget escape replays at legal depth (§6.2). Full reading: `docs/case-study-metamask.md` §H4.5.
 
@@ -325,10 +327,10 @@ Four tests in `test/adversarial/AttackVectors.t.sol` turn the threat-model rows 
 1. **Callee-frame ≠ end-to-end.** Numbers exclude the 21,000 transaction base and caller-side CALL overhead; they price the policy check increment, not the wallet-visible total.
 2. **E1 allowlists are measured in isolation only.** `settle(agent, to, amount)` has no target/selector dimension, so C.6 integrated E2+E3 only; E1 numbers are module-level.
 3. **The escrow is ETH-only.** Token/approval caps are measured as pure checks, not inside a real ERC-20 transfer path.
-4. **Cross-hop closure is demonstrated in the vendored framework, not ported into our escrow.** We bound what compositional enforcement costs (§6.2, §7.2) but did not implement it host-side.
+4. **Cross-hop closure is built and measured in a dedicated host contract, not integrated into `Escrow.settle`.** `RootAnchoredDelegation` (Section G′, §6.2) implements and prices the root-anchored ancestor walk host-side (9,625 gas/hop callee-frame); it is a standalone demonstration contract (like `TwoHopDelegation`), not wired into the main escrow's settle path, and it does not reproduce MetaMask's full production redemption (its 63,396 is caller-side, §7.2 — compared by shape, not magnitude).
 5. **The MetaMask 63,396 figure is caller-side** (their forge-std pin predates `vm.lastCallGas`) and must not be summed with callee-frame rows; the H5 tests use a minimal `MockDelegator`, not the production DeleGator signature/4337 paths (orthogonal to the chain-enforcement question, but a scope boundary).
 6. **r_conf is demonstrated for a bare payment primitive.** Systems that *import* off-chain truth (oracles, attestations, TEEs, ZK) can move the boundary at the price of relocated trust — measured here only as an argument, not an implementation.
-7. **The sliding-window rate limit is measured as a two-bucket approximation, not a true sliding log.** `E3_SlidingWindowRateLimit` is now implemented and measured (§5.1): the count-based two-bucket approximation packs into one slot and lands in the same three SSTORE regimes as the cumulative cap. A *true* sliding log — one that remembers each event's timestamp — is O(events) storage slots, whose cost is bounded analytically (one cold SLOAD + one SSTORE per retained event), not measured here; the two-bucket form is the standard production trade of exactness for a single slot. Delegation-depth bounds are likewise now implemented and measured (`E3_DelegationDepth`, §5.1) and, via `DepthBoundedDelegation`, shown to constrain chain length without closing the budget escape (§6.2). The remaining unimplemented item is host-side cross-hop *closure*: root-anchored compositional enforcement is bounded and answered via the vendored production framework (§7.2) rather than ported into our own escrow.
+7. **The sliding-window rate limit is measured as a two-bucket approximation, not a true sliding log.** `E3_SlidingWindowRateLimit` is now implemented and measured (§5.1): the count-based two-bucket approximation packs into one slot and lands in the same three SSTORE regimes as the cumulative cap. A *true* sliding log — one that remembers each event's timestamp — is O(events) storage slots, whose cost is bounded analytically (one cold SLOAD + one SSTORE per retained event), not measured here; the two-bucket form is the standard production trade of exactness for a single slot. Delegation-depth bounds are likewise now implemented and measured (`E3_DelegationDepth`, §5.1) and, via `DepthBoundedDelegation`, shown to constrain chain length without closing the budget escape (§6.2). Host-side cross-hop *closure* is now implemented and measured too (`RootAnchoredDelegation`, Section G′ / §6.2): root-anchored ancestor traversal closes the escape at **9,625 gas/hop callee-frame**, a number directly comparable to the E3 RESET regime. The only sliding-window form left unimplemented is a *value*-based one (limitation 9, the fixed-window reset burst); the *count*-based sliding window and the cross-hop closure are both done.
 8. **Absolute gas numbers are toolchain-specific.** Under `via_ir = true` (or a different solc/optimizer), codegen changes and every absolute number shifts — which is exactly why the toolchain is pinned and treated as part of the experiment's identity. The *structural* findings (the three SSTORE regimes, exact linearity of the batch curve, equal marginals between baselines 1 and 2, the E2 equality) are expected to survive a toolchain change, but this was not re-verified under the IR pipeline.
 9. **The cumulative cap is a fixed window, vulnerable to a reset burst (value dimension).** Adversarial test T4 (§8.1) drains 2× the daily cap within ~2 seconds across the `block.timestamp / 1 days` boundary — the canonical "timing manipulation" attack (Zhang et al. 2026 §5.2). `E3_SlidingWindowRateLimit` mitigates this for the request-*rate* (count) dimension, but it is count-based, not value-based; a sliding-window *value* cap was not implemented, so the value burst is a real, demonstrated limitation of the fixed-window `CumulativeDailyCap`, not a toolchain artifact.
 
@@ -338,7 +340,7 @@ Everything is deterministic under the pinned toolchain; gas numbers reproduce ex
 
 ```sh
 forge --version    # must be 1.7.1 (4072e487)
-forge test         # host: 106 passed / 0 failed
+forge test         # host: 113 passed / 0 failed
 make snap-check    # 0 drift vs snapshots/current.snap (baseline.snap is the phase-1 record, never overwritten)
 
 # Section E curve, regenerated row-by-row:
@@ -354,15 +356,15 @@ Vendoring rules: each system lives under `casestudy/<system>/` with its own `fou
 ## 11. Repository map and history
 
 ```
-src/       Escrow.sol · policies/ (10 modules) · baselines/ (E) · mocks/ (F, + ReentrantRecipient) · delegation/ (G, + DepthBoundedDelegation)
-test/      policies/ (D) · batch/ (E) · rconf/ (F) · delegation/ (G) · adversarial/ (§8.1) · BaseTest.sol
+src/       Escrow.sol · policies/ (10 modules) · baselines/ (E) · mocks/ (F, + ReentrantRecipient) · delegation/ (G: TwoHopDelegation + DepthBoundedDelegation + RootAnchoredDelegation [G′])
+test/      policies/ (D) · batch/ (E) · rconf/ (F) · delegation/ (G + G′ closure) · adversarial/ (§8.1) · BaseTest.sol
 casestudy/ coinbase/ (H2–H3) · metamask/ (H4–H5), each pinned via VERSION.md
 docs/      gas-results.md (D+E) · batch-curve.csv ·
            case-study{,-coinbase,-metamask}.md (H) · figures/*.svg · final-report.md
 snapshots/ baseline.snap (frozen) · current.snap (live)
 ```
 
-Sections and merges: A–B (`9895070`) → C (`f0591e9`, 8 modules + integration) → D (`35d8502`…`bbf0e30`, per-check gas) → E (`ba254f8`…`6ef265c`, batch curve) → F (`6e388d9`, r_conf) → G (`edab10d`, cross-hop escape) → H (`7fbab9f` → `119abbf` → `53b58e4` → `11a9d14`, case studies; merged via PR #2) → H9 post-review fixes (`23bb900`, PR #3: locked case-study gas assertions, Coinbase solc pin, doc reference cleanup) → E3 extensions post-review (`60e7fdf` → `8d311e8`, PR #4: `E3_SlidingWindowRateLimit`, `E3_DelegationDepth`, `DepthBoundedDelegation` under a red→green→measure TDD trail, plus fail-closed tests for malformed window parameters; host suite expanded 78 → 102 tests) → adversarial suite (`875c487` → `9780407`, PR #5: reentrancy/replay/fragmentation/timing tests turning threat-model rows into executable demonstrations; host suite 102 → 106 tests).
+Sections and merges: A–B (`9895070`) → C (`f0591e9`, 8 modules + integration) → D (`35d8502`…`bbf0e30`, per-check gas) → E (`ba254f8`…`6ef265c`, batch curve) → F (`6e388d9`, r_conf) → G (`edab10d`, cross-hop escape) → H (`7fbab9f` → `119abbf` → `53b58e4` → `11a9d14`, case studies; merged via PR #2) → H9 post-review fixes (`23bb900`, PR #3: locked case-study gas assertions, Coinbase solc pin, doc reference cleanup) → E3 extensions post-review (`60e7fdf` → `8d311e8`, PR #4: `E3_SlidingWindowRateLimit`, `E3_DelegationDepth`, `DepthBoundedDelegation` under a red→green→measure TDD trail, plus fail-closed tests for malformed window parameters; host suite expanded 78 → 102 tests) → adversarial suite (`875c487` → `9780407`, PR #5: reentrancy/replay/fragmentation/timing tests turning threat-model rows into executable demonstrations; host suite 102 → 106 tests) → cross-hop closure G′ (`3af3d72` → `d7b9a36`, PR #6: `RootAnchoredDelegation` root-anchored ancestor traversal under a red→green→measure TDD trail; per-hop closure measured at 9,625 gas; host suite 106 → 113 tests).
 
 ## 12. Conclusion
 
@@ -371,7 +373,7 @@ The verdict on the four predictions committed in §2:
 | Prediction | Verdict | Decisive evidence |
 |---|---|---|
 | **P1** — the expressible ceiling is enforceable, cheaply and attributably | **Held** | every per-check number opcode-accounted (residual < 46 gas); the batch-level E3 core's premium amortizes to 2.4% at N = 50 (§5) |
-| **P2** — cross-hop r_scope breaks under local-only state | **Held** | 3.5 ether drained from a 2-ether authorization, no local cap violated, control test passes (§6.2) — and the closure has a price: 63,396 gas in production (§7.2) |
+| **P2** — cross-hop r_scope breaks under local-only state | **Held, and now priced host-side** | 3.5 ether drained from a 2-ether authorization, no local cap violated, control test passes (§6.2) — and the closure is built and measured in our own escrow: **9,625 gas/hop** callee-frame for root-anchored ancestor traversal (Section G′), with production confirmation at 63,396 gas in MetaMask (§7.2). The break is specific to *local-only* state; with *root-anchored* state cross-hop is enforceable at O(depth) — priced, not impassable |
 | **P3** — r_conf is not locally self-verifiable | **Held, by construction** | honest and malicious settlements byte-identical; the 100-byte surface has no field for truth (§6.1); none of the three production systems attempts it (§7) |
 | **P4** — deployed systems already respect the boundary | **Held, with a refinement** | not one pattern but three strategies: restrict the surface (Coinbase), pay to walk the chain (MetaMask), leave the chain (x402) — all converging on the same r_conf wall (§7) |
 
