@@ -18,10 +18,11 @@ checks it against real systems.
 
 Status: **A–H done** (case studies: Coinbase Spend Permissions, MetaMask
 Delegation Framework; see `docs/case-study.md`), plus the E3 extensions
-(sliding-window rate limit, delegation-depth bounds). `forge test` is green
-(106 tests, incl. fail-closed tests for malformed window parameters and 4
-adversarial tests — reentrancy/replay/fragmentation/timing, see
-`docs/threat-coverage.md`).
+(sliding-window rate limit, delegation-depth bounds), the adversarial suite, and
+the host-side cross-hop closure (G′: `RootAnchoredDelegation`, per-hop cost
+measured at 9,625 gas). `forge test` is green (113 tests, incl. fail-closed tests
+for malformed window parameters and 4 adversarial tests —
+reentrancy/replay/fragmentation/timing, see `docs/threat-coverage.md`).
 
 ## Golden rules (non-negotiable)
 

@@ -30,9 +30,10 @@ prediction-vs-verdict ledger. Evidence dossiers:
 | Batch curve, exact linear fit | marginals **identical** for E2-only and full-E3 baselines (10,026) → batch-level E3 core costs **+2.4%** at N = 50 | §5.2 |
 | r_conf break (Section F) | honest vs malicious settlement **byte-identical** (100-byte surface; no field can carry truth) | §6.1 |
 | Cross-hop r_scope break (Section G) | **3.5 ETH drained from a 2 ETH authorization**, no local cap violated; depth bounds don't fix it (escape replays at legal depth) | §6.2 |
+| Cross-hop closure price (Section G′) | closed in our own escrow by root-anchored ancestor traversal at **9,625 gas/hop** (callee-frame, constant — the O(depth) law); cross-hop is *priced*, not impassable | §6.2 |
 | Production closure price | MetaMask closes the cross-hop gap at **63,396 gas** (2-layer redemption, caller-side) | §7.2 |
 | Production strategies | Coinbase *restricts the surface* · MetaMask *pays to walk the chain* · x402 *leaves the chain* — none attempts r_conf on-chain | §7 |
-| Verification | host **106/106** (incl. 4 adversarial tests), Coinbase case study **4/4**, MetaMask **2/2**; every gas number asserted at **±2** and reproduced bit-exact cross-OS | §10 |
+| Verification | host **113/113** (incl. 4 adversarial + 7 cross-hop closure tests), Coinbase case study **4/4**, MetaMask **2/2**; every gas number asserted at **±2** and reproduced bit-exact cross-OS | §10 |
 
 Every claim traces to a passing test or a documented structural argument; gas
 numbers are *predicted from an opcode model first*, then asserted (`±2`) — misses
@@ -54,7 +55,7 @@ src/
   policies/                  # Sections C + E3 extensions — 10 policy modules
   baselines/                 # Section E — no-policy & E2-only batch baselines
   mocks/                     # Section F — Mock/Malicious providers
-  delegation/                # Section G — TwoHopDelegation + DepthBoundedDelegation
+  delegation/                # Section G — TwoHopDelegation + DepthBoundedDelegation + RootAnchoredDelegation (G′ closure)
 test/
   BaseTest.sol  policies/  batch/  rconf/  delegation/
 casestudy/
@@ -70,7 +71,7 @@ foundry.toml  Makefile  README.md  CLAUDE.md
 
 ```bash
 forge --version     # must be 1.7.1 (4072e487)
-make build && make test          # host: 106 passed / 0 failed (gas assertions included)
+make build && make test          # host: 113 passed / 0 failed (gas assertions included)
 make snap-check                  # 0 drift vs snapshots/current.snap
 
 # Section E batch curve, regenerated row-by-row:
