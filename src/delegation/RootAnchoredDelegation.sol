@@ -40,16 +40,53 @@ contract RootAnchoredDelegation {
         external
         returns (bytes32 permId)
     {
-        revert("unimplemented");
+        uint256 depth;
+        if (parentId == bytes32(0)) {
+            depth = 1; // root grant from the user
+        } else {
+            Permission storage parent = permissions[parentId];
+            require(parent.active, "inactive parent");
+            require(parent.subject == msg.sender, "not parent holder");
+            depth = parent.depth + 1;
+        }
+
+        permId = keccak256(abi.encodePacked(msg.sender, subject, nonce++));
+        permissions[permId] = Permission({
+            parentId: parentId,
+            depth: depth,
+            subject: subject,
+            perCallCap: perCallCap,
+            cumulativeCap: cumulativeCap,
+            active: true
+        });
     }
 
     /// @notice Spend `amount` to `to` under `permId`, charging the amount against
     ///         EVERY ancestor's root-anchored counter (root-anchored closure).
+    /// @dev Checks-effects-interactions: every counter write and cap check is
+    ///      committed BEFORE the external transfer. If any ancestor's cap would
+    ///      break, the whole call reverts and all the debits roll back together —
+    ///      so a blocked spend leaves every counter (including the root) intact.
     function executeComposed(bytes32 permId, address payable to, uint256 amount) external {
-        revert("unimplemented");
+        Permission storage p = permissions[permId];
+        require(p.subject == msg.sender, "not subject");
+        require(p.active, "inactive");
+        require(amount <= p.perCallCap, "per-call cap");
+
+        // Walk to the root, debiting and checking every ancestor's own counter.
+        bytes32 cur = permId;
+        while (cur != bytes32(0)) {
+            uint256 spent = spentOf[cur] + amount;
+            require(spent <= permissions[cur].cumulativeCap, "cumulative cap");
+            spentOf[cur] = spent;
+            cur = permissions[cur].parentId;
+        }
+
+        (bool ok,) = to.call{value: amount}("");
+        require(ok, "transfer failed");
     }
 
     function depthOf(bytes32 permId) external view returns (uint256) {
-        revert("unimplemented");
+        return permissions[permId].depth;
     }
 }
